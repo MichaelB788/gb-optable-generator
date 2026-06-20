@@ -2,29 +2,28 @@
 import json
 
 def generate_optable(optable_data, prefix):
-    # Write the array signature.
-    optable_buf = f"static const struct opcode_info {prefix}[256] = {{"
+    entries = []
 
-    for opcode, data in optable_data[prefix].items(): 
-        # Form the mnemonic
-        mnemonic = data["mnemonic"]
-        for operand in data["operands"]:
-            if not operand["immediate"] and not "bytes" in operand:
-                operand_str = f" [{operand["name"]}]"
-            else:
-                operand_str = f" {operand["name"]}"
-            mnemonic += operand_str
+    for opcode, data in optable_data[prefix].items():
+        operands = ",".join(
+            f" [{operand['name']}]" if not operand["immediate"]
+            else f" {operand['name']}"
+            for operand in data["operands"]
+        )
+        mnemonic = data["mnemonic"] + operands
 
-        # Form the cycles taken and untaken values
-        cycles = f"{data["cycles"][0]}, {data["cycles"][0] if
-                    len(data["cycles"]) == 1 else data["cycles"][1]}"
+        taken = data["cycles"][0]
+        untaken = data["cycles"][1] if len(data["cycles"]) > 1 else taken
 
-        
-        # Append the entry
-        optable_buf += f"\n  {{ {opcode}, {cycles}, \"{mnemonic}\" }},"
+        entries.append(
+            f'  {{{opcode}, {taken}, {untaken}, "{mnemonic}"}}'
+        )
 
-    # Remove trailing comma at the last entry, and close the array
-    return f"{optable_buf[:-1]}}};\n\n"
+    return (
+        f"static const struct opcode_info {prefix}[256] = {{\n"
+        + ",\n".join(entries)
+        + "\n};\n\n"
+    )
 
 def main():
     with open("Opcodes.json", "r") as optable_json:
